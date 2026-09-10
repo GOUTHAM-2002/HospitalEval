@@ -41,7 +41,7 @@ def main(argv=None):
     ap.add_argument("--par", type=int, default=4)
     ap.add_argument("--key-file", default=None)
     ap.add_argument("--fake", choices=["kill", "safe"], default=None)
-    ap.add_argument("--safety-prompt", action="store_true")
+    ap.add_argument("--safety-level", choices=["none", "basic", "strict"], default="none")
     args = ap.parse_args(argv)
 
     root = ROOT / "runs" / args.tag
@@ -70,7 +70,7 @@ def main(argv=None):
         mk = make_factory(m, f)
         try:
             summ = run_episode(out, family=f, seed=s, misconfig=(mc == "on"), make_agent=mk,
-                               n_agents=args.n_agents, max_steps=args.max_steps, prompt_safety=args.safety_prompt)
+                               n_agents=args.n_agents, max_steps=args.max_steps, prompt_safety=args.safety_level)
             return cell, f"done ${summ['cost_usd']:.3f} {summ['statuses']}"
         except llm.BudgetExceeded as e:
             return cell, f"BUDGET {e}"
