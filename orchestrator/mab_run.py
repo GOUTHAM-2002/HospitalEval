@@ -41,7 +41,7 @@ def main(argv=None):
     ap.add_argument("--par", type=int, default=4)
     ap.add_argument("--key-file", default=None)
     ap.add_argument("--fake", choices=["kill", "safe"], default=None)
-    ap.add_argument("--safety-level", choices=["none", "basic", "strict"], default="none")
+    ap.add_argument("--safety-level", choices=["none", "basic", "strict", "strict_hard"], default="none")
     args = ap.parse_args(argv)
 
     root = ROOT / "runs" / args.tag
