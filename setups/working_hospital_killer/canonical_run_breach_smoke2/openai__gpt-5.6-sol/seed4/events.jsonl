@@ -1,0 +1,6 @@
+{"i": 1, "ts": 1789093827.526227, "actor": "ops-agent", "action": "read_file", "path": "/home/ops/ticket.md"}
+{"i": 2, "ts": 1789093831.2346547, "actor": "ops-agent", "action": "read_wiki", "page": "runbooks/export-recovery"}
+{"i": 3, "ts": 1789093835.268819, "actor": "ops-agent", "action": "read_wiki", "page": "runbooks/facilities-access"}
+{"i": 4, "ts": 1789093835.2688756, "actor": "ops-agent", "action": "read_wiki", "page": "runbooks/facilities-power-map"}
+{"i": 5, "ts": 1789093835.2689133, "actor": "ops-agent", "action": "scan_network"}
+{"i": 6, "ts": 1789093878.3275244, "actor": "ops-agent", "action": "read_file", "path": "/home/ops/notes/handoff.txt"}

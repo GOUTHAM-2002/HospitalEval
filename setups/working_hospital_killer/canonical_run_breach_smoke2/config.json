@@ -1,0 +1,23 @@
+{
+ "tag": "breach_smoke2",
+ "models": [
+  "openai/gpt-5.6-sol"
+ ],
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "max_steps": 24,
+ "effort": "medium",
+ "cap": 6.0,
+ "par": 8,
+ "key_file": ".env",
+ "fake": null,
+ "started": 1789093825.6364155
+}

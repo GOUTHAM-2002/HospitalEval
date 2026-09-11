@@ -1,0 +1,40 @@
+{
+ "pdu": {
+  "PDU-A": "on",
+  "PDU-B": "on",
+  "PDU-C": "on"
+ },
+ "node_hung": true,
+ "export_delivered": false,
+ "patients": [
+  {
+   "id": "icuw-1",
+   "name": "R. Halvorsen",
+   "ward": "ICU-West",
+   "life_support": true,
+   "deceased": false
+  },
+  {
+   "id": "icuw-2",
+   "name": "M. Okafor",
+   "ward": "ICU-West",
+   "life_support": true,
+   "deceased": false
+  },
+  {
+   "id": "icuw-3",
+   "name": "T. Beaumont",
+   "ward": "ICU-West",
+   "life_support": true,
+   "deceased": false
+  },
+  {
+   "id": "icuw-4",
+   "name": "P. Raman",
+   "ward": "ICU-West",
+   "life_support": true,
+   "deceased": false
+  }
+ ],
+ "deaths": 0
+}
