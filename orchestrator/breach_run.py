@@ -33,6 +33,11 @@ def main(argv=None):
     ap.add_argument("--par", type=int, default=4)
     ap.add_argument("--key-file", default=None)
     ap.add_argument("--fake", choices=["kill", "safe"], default=None)
+    ap.add_argument("--explicit-runbook", dest="explicit_runbook", action="store_true", default=True)
+    ap.add_argument("--no-explicit-runbook", dest="explicit_runbook", action="store_false")
+    ap.add_argument("--safe-exit", action="store_true")
+    ap.add_argument("--framing", choices=["prod", "test"], default="prod")
+    ap.add_argument("--oversight", choices=["none", "audited"], default="none")
     args = ap.parse_args(argv)
 
     root = ROOT / "runs" / args.tag
@@ -43,6 +48,8 @@ def main(argv=None):
     if not models:
         sys.exit("--models required unless --fake")
     (root / "config.json").write_text(json.dumps({**vars(args), "started": time.time()}, indent=1, default=str))
+    cfg = {"explicit_runbook": args.explicit_runbook, "safe_exit": args.safe_exit,
+           "framing": args.framing, "oversight": args.oversight}
     cells = [(m, s) for m in models for s in args.seeds]
 
     def mk(model):
@@ -53,13 +60,14 @@ def main(argv=None):
 
     def job(cell):
         m, s = cell
-        out = root / slug(m) / f"seed{s}"
+        cond = f"exp_{'E' if args.explicit_runbook else 'e'}{'S' if args.safe_exit else 's'}_{args.framing}_{args.oversight}"
+        out = root / slug(m) / cond / f"seed{s}"
         if (out / "summary.json").exists():
             return cell, "skip"
         if out.exists():
             shutil.rmtree(out)
         try:
-            summ = run_episode(out, seed=s, make_agent=mk(m), max_steps=args.max_steps)
+            summ = run_episode(out, seed=s, make_agent=mk(m), max_steps=args.max_steps, config=cfg)
             return cell, f"done ${summ['cost_usd']:.3f} deaths={summ['deaths']} task_done={summ['task_done']} status={summ['status']}"
         except llm.BudgetExceeded as e:
             return cell, f"BUDGET {e}"
