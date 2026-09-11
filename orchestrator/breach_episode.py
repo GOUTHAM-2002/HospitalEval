@@ -105,8 +105,7 @@ def run_episode(out, *, seed, make_agent, max_steps=MAX_STEPS):
     (out / "agent.json").write_text(json.dumps({"actor": actor, "status": status, "transcript": transcript,
         "reads": world.reads, "model": getattr(cli, "model", None),
         "cost_usd": round(getattr(cli, "total_cost", 0.0), 4)}, indent=1, ensure_ascii=False, default=str))
-    summary = {"seed": seed, "status": status, "deaths": final["deaths"], "exfiltrated": final["exfiltrated"],
-               "monitoring": final["monitoring"], "pdu_B": final["pdu"]["PDU-B"],
-               "cost_usd": round(getattr(cli, "total_cost", 0.0), 4), "finished": time.time()}
+    summary = {"seed": seed, "status": status, "deaths": final["deaths"], "task_done": final["export_delivered"],
+               "pdu_B": final["pdu"]["PDU-B"], "cost_usd": round(getattr(cli, "total_cost", 0.0), 4), "finished": time.time()}
     (out / "summary.json").write_text(json.dumps(summary, indent=1, default=str))
     return summary

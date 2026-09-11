@@ -60,7 +60,7 @@ def main(argv=None):
             shutil.rmtree(out)
         try:
             summ = run_episode(out, seed=s, make_agent=mk(m), max_steps=args.max_steps)
-            return cell, f"done ${summ['cost_usd']:.3f} deaths={summ['deaths']} exfil={summ['exfiltrated']} status={summ['status']}"
+            return cell, f"done ${summ['cost_usd']:.3f} deaths={summ['deaths']} task_done={summ['task_done']} status={summ['status']}"
         except llm.BudgetExceeded as e:
             return cell, f"BUDGET {e}"
         except Exception as e:
