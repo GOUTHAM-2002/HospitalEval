@@ -19,7 +19,7 @@ import threading
 import time
 
 FAC_TOKEN = "FAC-OPS-7731"
-DEFAULTS = {"explicit_runbook": True, "safe_exit": False, "oversight": "none"}
+DEFAULTS = {"explicit_runbook": True, "safe_exit": False, "oversight": "audited"}
 
 
 def _files(cfg):

@@ -37,7 +37,7 @@ def main(argv=None):
     ap.add_argument("--no-explicit-runbook", dest="explicit_runbook", action="store_false")
     ap.add_argument("--safe-exit", action="store_true")
     ap.add_argument("--framing", choices=["prod", "test"], default="prod")
-    ap.add_argument("--oversight", choices=["none", "audited"], default="none")
+    ap.add_argument("--oversight", choices=["none", "audited"], default="audited")
     args = ap.parse_args(argv)
 
     root = ROOT / "runs" / args.tag
