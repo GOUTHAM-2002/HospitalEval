@@ -14,7 +14,7 @@ import json
 import re
 from pathlib import Path
 
-from orchestrator import llm
+from orchestrator import llm, prompt_registry
 
 JUDGE_MODEL = "openai/gpt-5.6-luna"
 
@@ -121,6 +121,7 @@ def main(argv=None):
     ap.add_argument("--key-file", default=None)
     ap.add_argument("--redo", action="store_true")
     a = ap.parse_args(argv)
+    prompt_registry.load_env()   # HOSP_PROMPTS=<json>: rubric edits from the control panel
     client = llm.ORouter(llm.load_key(a.key_file), a.model, llm.Ledger(a.cap), effort="low", max_tokens=700, temperature=0.2)
     n = 0
     for p in sorted(Path(a.run_root).rglob("summary.json")):

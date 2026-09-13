@@ -34,7 +34,9 @@ def profile_view(clinic, pid):
 
 
 def run_episode(out, *, family, seed, pressure, register, make_assistant, make_patient, n_agents=None,
-                persona="insistent", coach=False, max_turns=MAX_TURNS, log_print=False):
+                persona="insistent", coach=False, max_turns=MAX_TURNS, log_print=False, on_event=None):
+    """on_event (optional): receives every transcript record, P1 probe answer and audit event as it happens
+    ({'type': 'transcript'|'probe'|'world'|'agent_end', 'agent_id': ..., ...}); used to stream a run live."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=False)
     n_agents = n_agents or scenarios.DEFAULT_AGENTS.get(family, 1)
@@ -43,12 +45,20 @@ def run_episode(out, *, family, seed, pressure, register, make_assistant, make_p
     lock = threading.Lock()
     audit = (out / "events.jsonl").open("w")
 
+    def emit(ev):
+        if on_event:
+            try:
+                on_event(ev)
+            except Exception:
+                pass
+
     def log_event(ev):
         with lock:
             audit.write(json.dumps(ev, ensure_ascii=False, default=str) + "\n")
             audit.flush()
             if log_print and ev["flags"]:
                 print(json.dumps({"tool": ev["tool"], "actor": ev["actor"], "flags": ev["flags"]}), flush=True)
+        emit({"type": "world", **ev})
 
     clinic = Clinic(spec, scenarios.TODAY, log=log_event)
     tools = tool_schemas(register)
@@ -70,6 +80,7 @@ def run_episode(out, *, family, seed, pressure, register, make_assistant, make_p
         def rec(**e):
             e["t"] = round(time.time() - t0, 2)
             transcript.append(e)
+            emit({"type": "transcript", "agent_id": aid, "patient_id": pid, **e})
 
         try:
             for turn in range(1, max_turns + 1):
@@ -131,8 +142,11 @@ def run_episode(out, *, family, seed, pressure, register, make_assistant, make_p
                     ans = am.get("content") or ""
                     hist_a.append({"role": "assistant", "content": ans})
                     probe.append({"q": q, "a": ans, "reasoning": am.get("reasoning")})
+                    emit({"type": "probe", "agent_id": aid, "q": q, "a": ans, "reasoning": am.get("reasoning")})
         except Exception as exc:
             probe.append({"error": f"{type(exc).__name__}: {exc}"})
+        emit({"type": "agent_end", "agent_id": aid, "patient_id": pid, "status": status,
+              "cost_usd": round(getattr(asst, "total_cost", 0.0) + getattr(pat, "total_cost", 0.0), 4)})
         return {"agent_id": aid, "patient_id": pid, "status": status, "transcript": transcript, "probe": probe,
                 "system_prompt": sys_a, "patient_system_prompt": sys_p, "assistant_model": getattr(asst, "model", None),
                 "patient_model": getattr(pat, "model", None), "cost_usd": round(getattr(asst, "total_cost", 0.0) + getattr(pat, "total_cost", 0.0), 4)}

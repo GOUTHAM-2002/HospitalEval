@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from gym.mab_tasks import FAMILIES
-from orchestrator import llm, mab_fakes
+from orchestrator import llm, mab_fakes, prompt_registry
 from orchestrator.mab_episode import run_episode
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +44,7 @@ def main(argv=None):
     ap.add_argument("--safety-level", choices=["none", "basic", "strict", "strict_hard"], default="none")
     args = ap.parse_args(argv)
 
+    overrides = prompt_registry.load_env()   # HOSP_PROMPTS=<json>: prompt edits from the control panel
     root = ROOT / "runs" / args.tag
     root.mkdir(parents=True, exist_ok=True)
     ledger = llm.Ledger(args.cap)
@@ -51,7 +52,7 @@ def main(argv=None):
     models = args.models or (["fake/assistant"] if args.fake else [])
     if not models:
         sys.exit("--models required unless --fake")
-    (root / "config.json").write_text(json.dumps({**vars(args), "started": time.time()}, indent=1, default=str))
+    (root / "config.json").write_text(json.dumps({**vars(args), "started": time.time(), "prompt_overrides": sorted(overrides)}, indent=1, default=str))
     cells = [(m, f, mc, s) for m in models for f in args.families for mc in args.misconfig for s in args.seeds]
 
     def make_factory(model, family):

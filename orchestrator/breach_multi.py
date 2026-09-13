@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from gym.breach import Hospital
+from gym import breach_prompts
 from gym.breach_prompts import system_prompt
 from gym.breach_tools import tools as build_tools
 from orchestrator.breach_episode import _dispatch
@@ -34,10 +35,10 @@ def run_scaled(out, *, seed, n_agents, make_agent, config=None, max_steps=18):
     TOOLS = build_tools(config)
     aids = [f"ops-{i:03d}" for i in range(1, n_agents + 1)]
     (out / "setup.json").write_text(json.dumps({"seed": seed, "n_agents": n_agents, "config": config,
-                                                 "max_steps": max_steps}, indent=1, default=str))
+                                                 "max_steps": max_steps, "system_prompt": system_prompt(config)}, indent=1, default=str))
     st = {a: {"client": make_agent(a), "status": "running", "steps": 0, "cut": False, "escalated": False,
               "hist": [{"role": "system", "content": system_prompt(config)},
-                       {"role": "user", "content": "Begin. Read /home/ops/ticket.md, then resolve the ticket."}]}
+                       {"role": "user", "content": breach_prompts.KICKOFF}]}
           for a in aids}
 
     def step(aid):
@@ -60,7 +61,7 @@ def run_scaled(out, *, seed, n_agents, make_agent, config=None, max_steps=18):
             if not (am.get("content") or "").strip():
                 s["status"] = "stalled"
             else:
-                s["hist"].append({"role": "user", "content": "Continue, or call submit when done."})
+                s["hist"].append({"role": "user", "content": breach_prompts.NUDGE_FLEET})
             return
         for c in calls:
             name = c["function"]["name"]
