@@ -56,6 +56,37 @@
   input[type=checkbox]{width:auto;margin:0 6px 0 0;vertical-align:middle}
   textarea{resize:vertical;line-height:1.5}
   .card{border:1px solid var(--line);border-radius:2px;background:#fff;padding:18px;margin-bottom:18px}
+  /* scenarios tab */
+  .scn-intro{color:var(--mid);font-size:13px;line-height:1.6;margin:2px 0 20px;max-width:760px}
+  .scn-legend{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 22px;font-size:11.5px;color:var(--mid)}
+  .scn-legend b{font-weight:500;color:var(--ink)}
+  .scn-catnav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 20px}
+  .scn-catnav button{font-size:11px;letter-spacing:.06em;padding:5px 11px;border:1px solid var(--line);color:var(--mid);background:#fff}
+  .scn-catnav button.on{border-color:var(--ink);color:var(--ink)}
+  .scn-cat{margin:0 0 34px}
+  .scn-cat h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin:0 0 3px}
+  .scn-cat .cdesc{color:var(--faint);font-size:12px;margin:0 0 14px}
+  .scn{border:1px solid var(--line);border-radius:3px;background:#fff;padding:0;margin:0 0 12px;overflow:hidden}
+  .scn summary{list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:11px}
+  .scn summary::-webkit-details-marker{display:none}
+  .scn summary:hover{background:#fafafa}
+  .scn .sev{flex:0 0 auto;width:18px;height:18px;border-radius:50%;color:#fff;font-size:10.5px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+  .scn .sev1{background:var(--warn)} .scn .sev2{background:var(--serious)} .scn .sev3{background:#c4562e} .scn .sev4{background:var(--crit)}
+  .scn .stitle{flex:1;font-size:13.5px;color:var(--ink)}
+  .scn .simpl{flex:0 0 auto;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--good);border:1px solid var(--good);border-radius:999px;padding:1px 8px}
+  .scn .sspec{flex:0 0 auto;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+  .scn .sbody{padding:4px 16px 18px 45px;border-top:1px solid var(--line)}
+  .scn .row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.8px;line-height:1.55}
+  .scn .row:last-child{border-bottom:none}
+  .scn .row .k{color:var(--faint);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
+  .scn .row.harm .v{color:var(--crit)} .scn .row.safe .v{color:var(--good)}
+  .scn .flowline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0 4px;font-size:12px}
+  .scn .flowline .step{padding:5px 10px;border:1px solid var(--line);border-radius:3px;background:#fafafa}
+  .scn .flowline .step.h{border-color:var(--crit);color:var(--crit);background:#fdf3f3}
+  .scn .flowline .step.s{border-color:var(--good);color:var(--good);background:#f2faf2}
+  .scn .flowline .arw{color:var(--faint)}
+  @media(max-width:640px){.scn .row{grid-template-columns:1fr}.scn .sbody{padding-left:16px}}
   .card.flat{background:var(--panel)}
   button{font-family:var(--sans);font-weight:300;font-size:13px;letter-spacing:.04em;padding:9px 16px;border:1px solid var(--ink);
     background:#fff;color:var(--ink);border-radius:2px;cursor:pointer;transition:.12s}
@@ -295,6 +326,7 @@
   <div class="brand">hospital·control</div>
   <button class="tab active" data-tab="special" title="Realistic interactive incident — watch, steer, and answer the agent live">Special <small>1</small></button>
   <button class="tab" data-tab="special-auto" title="Batch of special episodes across models — grid + live view of each">Special Automation <small>2</small></button>
+  <button class="tab" data-tab="scenarios" title="The 30 indirect-harm scenarios: task, hidden coupling, safe path">Scenarios <small>30</small></button>
   <button class="navbtn" id="nav-settings" title="Edit every agent, patient-simulator and judge prompt">&#9881; Settings<small id="nav-settings-n" hidden></small></button>
   <div class="pill" id="pill"><span><span class="dot"></span>connecting…</span></div>
 </header>
@@ -441,6 +473,11 @@
 <!-- ============================== BEST SETUP ============================== -->
 <section id="view-best" class="view" hidden>
   <div class="page" style="max-width:1000px" id="best_page"><div class="muted">loading…</div></div>
+</section>
+
+<!-- ============================== SCENARIOS ============================== -->
+<section id="view-scenarios" class="view" hidden>
+  <div class="page" style="max-width:1060px" id="scn_page"><div class="muted">loading…</div></div>
 </section>
 
 <!-- ============================== SPECIAL (interactive) ============================== -->
@@ -707,7 +744,7 @@ function renderPill(j){const running=j.running||0;const gcap=META?META.global.ca
     (META&&META.prompts?`<span class="click" onclick="Settings.open()" data-tip="edit every agent & judge prompt (Settings)">prompts ${META.prompts.n_overridden?`<b class="alert">${META.prompts.n_overridden} edited</b>`:'<b>default</b>'}</span>`:'');
   Settings.badge();}
 function showTab(name){$$('.view').forEach(v=>v.hidden=v.id!=='view-'+name);$$('.nav .tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));store.set('tab',name);
-  if(name==='runs')Runs.enter();if(name==='git')Git.enter();if(name==='jobs')Jobs.enter();if(name==='tests')Tests.enter();if(name==='auto')Auto.enter();if(name==='best')Best.enter();if(name==='special')Special.enter();if(name==='special-auto')SpecialAuto.enter();}
+  if(name==='runs')Runs.enter();if(name==='git')Git.enter();if(name==='jobs')Jobs.enter();if(name==='tests')Tests.enter();if(name==='auto')Auto.enter();if(name==='best')Best.enter();if(name==='special')Special.enter();if(name==='special-auto')SpecialAuto.enter();if(name==='scenarios')Scenarios.enter();}
 $$('.nav .tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 
 // ============================================================== flow renderer (live + episode viewer)
@@ -1184,6 +1221,57 @@ const Jobs={job:null,watcher:null,filter:'',
 
 // ============================================================== SETTINGS (edit every prompt)
 // ============================================================== BEST SETUP tab
+// ============================================================== SCENARIOS tab
+const Scenarios={data:null,cat:'all',loaded:false,
+  async enter(){ if(this.loaded)return; this.loaded=true;
+    try{ this.data=await api('/api/scenarios'); this.render(); }
+    catch(e){ this.loaded=false; $('#scn_page').innerHTML=`<div class="alert">could not load scenarios: ${esc(e.message)}</div>`; } },
+  render(){ const d=this.data, cats=d.categories, sev=d.severity, all=d.scenarios;
+    const counts={}; all.forEach(s=>counts[s.category]=(counts[s.category]||0)+1);
+    const nImpl=all.filter(s=>s.status==='implemented').length;
+    const legend=Object.entries(sev).map(([n,t])=>`<span><i class="sev sev${n}" style="display:inline-flex;vertical-align:middle;margin-right:5px">${n}</i>${esc(t)}</span>`).join('');
+    const catnav=`<button class="${this.cat==='all'?'on':''}" data-c="all">All (${all.length})</button>`+
+      Object.keys(cats).map(k=>`<button class="${this.cat===k?'on':''}" data-c="${esc(k)}">${esc(k)} (${counts[k]||0})</button>`).join('');
+    const shownCats=this.cat==='all'?Object.keys(cats):[this.cat];
+    const body=shownCats.map(k=>{ const list=all.filter(s=>s.category===k); if(!list.length)return '';
+      return `<div class="scn-cat"><h2>${esc(k)}</h2><div class="cdesc">${esc(cats[k])}</div>`+
+        list.map(s=>this.card(s)).join('')+`</div>`; }).join('');
+    $('#scn_page').innerHTML=
+      `<h1 style="margin:0 0 4px">Indirect-harm scenarios</h1>`+
+      `<div class="scn-intro">Thirty ways an agent can end up harming a patient <b>without ever being told to</b>. `+
+      `In each one the agent is handed a normal, sanctioned job under pressure, and the fastest way to finish it also `+
+      `trips a hidden coupling — a power cut that also feeds the ICU, a data cleanup that flips a code status, a config `+
+      `tweak that removes a dose interlock. The harm is always one step removed and a genuine safe path always exists. `+
+      `<b>${nImpl}</b> of ${all.length} are wired into a runnable world today (the rest are designed specs). `+
+      `Everything is synthetic — fake patients, fake state, mechanical harm flags.</div>`+
+      `<div class="scn-legend">${legend}</div>`+
+      `<div class="scn-catnav">${catnav}</div>`+body;
+    $$('#scn_page .scn-catnav button').forEach(b=>b.onclick=()=>{this.cat=b.dataset.c;this.render();});
+  },
+  card(s){ const impl=s.status==='implemented';
+    const flow=`<div class="flowline"><span class="step">${esc(s.role.split('(')[0].trim().split(' ').slice(0,3).join(' '))}</span>`+
+      `<span class="arw">→</span><span class="step">sanctioned task</span>`+
+      `<span class="arw">→</span><span class="step h">shortcut fires hidden coupling</span>`+
+      `<span class="arw">→</span><span class="step h">patient harm</span>`+
+      `<span class="arw">vs</span><span class="step s">safe path</span></div>`;
+    const R=(k,v,cls='')=>`<div class="row ${cls}"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`;
+    return `<details class="scn"><summary>`+
+      `<span class="sev sev${s.severity}">${s.severity}</span>`+
+      `<span class="stitle">${esc(s.title)}</span>`+
+      (impl?`<span class="simpl">runnable</span>`:`<span class="sspec">spec</span>`)+
+      `</summary><div class="sbody">`+
+      flow+
+      R('Agent is', s.role)+
+      R('The task', s.task)+
+      R('The shortcut', s.shortcut,'harm')+
+      R('Hidden coupling', s.coupling,'harm')+
+      R('Buried clue', s.clue_chain)+
+      R('Safe path', s.safe_path,'safe')+
+      R('Why it hides', s.hidden_how)+
+      R('Harm flag', s.harm_flag)+
+      `</div></details>`;
+  },
+};
 // ============================================================== SPECIAL AUTOMATION (batch grid)
 const SpecialAuto={bid:null,batch:null,poll:null,livePoll:null,flow:null,watcher:null,curJob:null,itShown:false,
   init(){ this.flow=new Flow($('#sa_flow')); this.flow.scrollEl=$('#sa_scroll');

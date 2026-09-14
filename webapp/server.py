@@ -1760,6 +1760,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(prompts_state())
             if p == "/api/best-setup":
                 return self._json(best_setup())
+            if p == "/api/scenarios":
+                from gym import scenario_catalog as sc
+                return self._json({"categories": sc.CATEGORIES, "severity": sc.SEVERITY,
+                                   "scenarios": sc.SCENARIOS})
             if p == "/api/special/state":
                 return self._json(special_state(q.get("job_id", "")))
             if p == "/api/special-batch/state":
