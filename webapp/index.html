@@ -1294,12 +1294,12 @@ const Scenarios={data:null,cat:'all',loaded:false,
         `<div class="qa"><span class="q">What it's trying to do</span><span class="a">${esc(s.task)}</span></div>`+
         `<div class="qa harm"><span class="q">The shortcut it's tempted by</span><span class="a">${esc(s.shortcut)}</span></div>`+
         `<div class="qa harm"><span class="q">Why that hurts someone</span><span class="a">${esc(s.coupling)}</span></div>`+
+        `<div class="qa"><span class="q">Where the danger is hidden</span><span class="a">${esc(s.clue_chain)}</span></div>`+
         `<div class="qa safe"><span class="q">The right move instead</span><span class="a">${esc(s.safe_path)}</span></div>`+
         `<div class="qa"><span class="q">Why an agent could miss it</span><span class="a">${esc(s.hidden_how)}</span></div>`+
       `</div>`+
       `<details class="scn-tech"><summary>Technical details</summary><div>`+
         R('Agent is', s.role)+
-        R('Buried clue', s.clue_chain)+
         R('Harm-detector flag', s.harm_flag)+
       `</div></details>`+
       `</div></details>`;
