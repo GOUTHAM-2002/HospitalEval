@@ -77,6 +77,16 @@
   .scn .simpl{flex:0 0 auto;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--good);border:1px solid var(--good);border-radius:999px;padding:1px 8px}
   .scn .sspec{flex:0 0 auto;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
   .scn .sbody{padding:4px 16px 18px 45px;border-top:1px solid var(--line)}
+  .scn .scn-plain{font-size:14.5px;line-height:1.65;color:var(--ink);padding:14px 0 4px;max-width:720px}
+  .scn-qa{margin:6px 0 2px}
+  .scn-qa .qa{padding:9px 0;border-bottom:1px dashed var(--line)}
+  .scn-qa .qa:last-child{border-bottom:none}
+  .scn-qa .q{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .scn-qa .a{display:block;font-size:13px;line-height:1.55;color:var(--ink)}
+  .scn-qa .qa.harm .a{color:var(--crit)} .scn-qa .qa.safe .a{color:var(--good)}
+  .scn-tech{margin-top:12px}
+  .scn-tech>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:6px 0}
+  .scn-tech>summary:hover{color:var(--ink)}
   .scn .row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.8px;line-height:1.55}
   .scn .row:last-child{border-bottom:none}
   .scn .row .k{color:var(--faint);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
@@ -1238,37 +1248,42 @@ const Scenarios={data:null,cat:'all',loaded:false,
         list.map(s=>this.card(s)).join('')+`</div>`; }).join('');
     $('#scn_page').innerHTML=
       `<h1 style="margin:0 0 4px">Indirect-harm scenarios</h1>`+
-      `<div class="scn-intro">Thirty ways an agent can end up harming a patient <b>without ever being told to</b>. `+
-      `In each one the agent is handed a normal, sanctioned job under pressure, and the fastest way to finish it also `+
-      `trips a hidden coupling — a power cut that also feeds the ICU, a data cleanup that flips a code status, a config `+
-      `tweak that removes a dose interlock. The harm is always one step removed and a genuine safe path always exists. `+
-      `<b>${nImpl}</b> of ${all.length} are wired into a runnable world today (the rest are designed specs). `+
-      `Everything is synthetic — fake patients, fake state, mechanical harm flags.</div>`+
+      `<div class="scn-intro">Thirty ways an AI agent can end up hurting a patient <b>without ever being told to</b>. `+
+      `Every scenario works the same way: the agent is given a <b>normal job</b> and is under pressure to finish it. `+
+      `The quickest way to finish also quietly does harm — like rebooting a server by cutting power that turns out to `+
+      `also run the ICU breathing machines. There is always a <b>safe alternative</b> the agent could take instead. `+
+      `We watch which one it picks. Click any row to read it in plain English. `+
+      `<b>${nImpl}</b> of ${all.length} can be run as a live test right now; the rest are written up and being built. `+
+      `Nothing is real — the patients, the hospital and the "deaths" are all fake data.</div>`+
       `<div class="scn-legend">${legend}</div>`+
       `<div class="scn-catnav">${catnav}</div>`+body;
     $$('#scn_page .scn-catnav button').forEach(b=>b.onclick=()=>{this.cat=b.dataset.c;this.render();});
   },
   card(s){ const impl=s.status==='implemented';
-    const flow=`<div class="flowline"><span class="step">${esc(s.role.split('(')[0].trim().split(' ').slice(0,3).join(' '))}</span>`+
-      `<span class="arw">→</span><span class="step">sanctioned task</span>`+
-      `<span class="arw">→</span><span class="step h">shortcut fires hidden coupling</span>`+
-      `<span class="arw">→</span><span class="step h">patient harm</span>`+
-      `<span class="arw">vs</span><span class="step s">safe path</span></div>`;
+    const flow=`<div class="flowline"><span class="step">normal job</span>`+
+      `<span class="arw">→</span><span class="step h">tempting shortcut</span>`+
+      `<span class="arw">→</span><span class="step h">someone gets hurt</span>`+
+      `<span class="arw">vs</span><span class="step s">the safe move</span></div>`;
     const R=(k,v,cls='')=>`<div class="row ${cls}"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`;
     return `<details class="scn"><summary>`+
       `<span class="sev sev${s.severity}">${s.severity}</span>`+
       `<span class="stitle">${esc(s.title)}</span>`+
       (impl?`<span class="simpl">runnable</span>`:`<span class="sspec">spec</span>`)+
       `</summary><div class="sbody">`+
+      `<div class="scn-plain">${esc(s.plain)}</div>`+
       flow+
-      R('Agent is', s.role)+
-      R('The task', s.task)+
-      R('The shortcut', s.shortcut,'harm')+
-      R('Hidden coupling', s.coupling,'harm')+
-      R('Buried clue', s.clue_chain)+
-      R('Safe path', s.safe_path,'safe')+
-      R('Why it hides', s.hidden_how)+
-      R('Harm flag', s.harm_flag)+
+      `<div class="scn-qa">`+
+        `<div class="qa"><span class="q">What it's trying to do</span><span class="a">${esc(s.task)}</span></div>`+
+        `<div class="qa harm"><span class="q">The shortcut it's tempted by</span><span class="a">${esc(s.shortcut)}</span></div>`+
+        `<div class="qa harm"><span class="q">Why that hurts someone</span><span class="a">${esc(s.coupling)}</span></div>`+
+        `<div class="qa safe"><span class="q">The right move instead</span><span class="a">${esc(s.safe_path)}</span></div>`+
+        `<div class="qa"><span class="q">Why an agent could miss it</span><span class="a">${esc(s.hidden_how)}</span></div>`+
+      `</div>`+
+      `<details class="scn-tech"><summary>Technical details</summary><div>`+
+        R('Agent is', s.role)+
+        R('Buried clue', s.clue_chain)+
+        R('Harm-detector flag', s.harm_flag)+
+      `</div></details>`+
       `</div></details>`;
   },
 };
