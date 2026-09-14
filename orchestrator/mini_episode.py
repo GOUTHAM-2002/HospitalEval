@@ -19,6 +19,19 @@ from gym.worlds import get_spec
 MAX_STEPS = 24
 
 
+def _strip_escalation(text):
+    """Remove any sentence that mentions escalation / the on-call human, for a no-safe run."""
+    if not text:
+        return text
+    keep = []
+    for sent in text.replace("\n", " \n").split(". "):
+        low = sent.lower()
+        if "escalat" in low or "on-call human" in low or "contact_it" in low or "the human" in low:
+            continue
+        keep.append(sent)
+    return ". ".join(keep).replace(" \n", "\n").strip()
+
+
 def _classify(world, status):
     """Map final world state to an outcome label + severity for the grid."""
     s = world.snapshot()
@@ -38,6 +51,8 @@ def run_episode(out, *, seed, make_agent, scenario_id=None, spec=None, config=No
     cancel_check = cancel_check or (lambda: False)
     spec = spec or get_spec(scenario_id)
     scenario_id = spec["id"]
+    config = config or {}
+    no_safe = bool(config.get("no_safe"))
     lock = threading.RLock()
     events = (out / "events.jsonl").open("w")
 
@@ -54,17 +69,19 @@ def run_episode(out, *, seed, make_agent, scenario_id=None, spec=None, config=No
             events.flush()
         emit({"type": "world", **ev})
 
-    world = SpecWorld(spec, seed=seed, log=log)
-    actor = (config or {}).get("agent", "ARIA-7")
-    TOOLS = build_tools(spec)
+    world = SpecWorld(spec, seed=seed, log=log, no_safe=no_safe)
+    actor = config.get("agent", "ARIA-7")
+    TOOLS = build_tools(spec, include_escalate=not no_safe)
+    sys_prompt = _strip_escalation(spec["system_prompt"]) if no_safe else spec["system_prompt"]
+    kickoff = _strip_escalation(spec["kickoff"]) if no_safe else spec["kickoff"]
     pings = list(spec.get("deadline_pings", []))
     (out / "setup.json").write_text(json.dumps({
-        "seed": seed, "scenario_id": scenario_id, "actor": actor, "max_steps": max_steps,
-        "role": spec["role"], "system_prompt": spec["system_prompt"], "tools": TOOLS,
+        "seed": seed, "scenario_id": scenario_id, "actor": actor, "max_steps": max_steps, "no_safe": no_safe,
+        "role": spec["role"], "system_prompt": sys_prompt, "tools": TOOLS,
         "docs": sorted(spec["docs"]), "operations": [o["name"] for o in spec["operations"]]}, indent=1, default=str))
 
-    hist = [{"role": "system", "content": spec["system_prompt"]},
-            {"role": "user", "content": spec["kickoff"]}]
+    hist = [{"role": "system", "content": sys_prompt},
+            {"role": "user", "content": kickoff}]
     transcript, status, t0 = [], "max_steps", time.time()
     cli = make_agent(actor)
 
@@ -74,7 +91,7 @@ def run_episode(out, *, seed, make_agent, scenario_id=None, spec=None, config=No
         emit({"type": "transcript", "actor": actor, **e})
 
     emit({"type": "episode_start", "world": "scenario", "scenario_id": scenario_id, "actor": actor, "seed": seed,
-          "config": config or {}, "system_prompt": spec["system_prompt"], "out": out.name})
+          "config": config, "no_safe": no_safe, "system_prompt": sys_prompt, "out": out.name})
 
     def dispatch(name, args):
         if name == "list_docs":
@@ -84,6 +101,8 @@ def run_episode(out, *, seed, make_agent, scenario_id=None, spec=None, config=No
         if name == "search":
             return world.search(actor, args.get("query", ""))
         if name == "escalate_to_human":
+            if no_safe:
+                return {"ok": False, "error": f"Unknown tool '{name}'"}
             return world.escalate(actor, args.get("reason", ""))
         return world.operate(actor, name, args)
 
@@ -136,7 +155,7 @@ def run_episode(out, *, seed, make_agent, scenario_id=None, spec=None, config=No
 
     outcome, severity = _classify(world, status)
     final = world.snapshot()
-    summary = {"seed": seed, "scenario_id": scenario_id, "status": status, "outcome": outcome,
+    summary = {"seed": seed, "scenario_id": scenario_id, "status": status, "outcome": outcome, "no_safe": no_safe,
                "severity": severity, "harmed": final["harmed"], "harm_flag": final["harm_flag"],
                "deaths": final["deaths"], "escalated": final["escalated"], "resolved": final["resolved"],
                "reads": world.reads, "cost_usd": round(getattr(cli, "total_cost", 0.0), 4), "finished": time.time()}

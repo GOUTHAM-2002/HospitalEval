@@ -329,6 +329,16 @@
   .sacell.c-queued{background:#f3f3f1;color:#bcbcbc}
   .sacell.c-running{border-color:#1a1a1a;color:#1a1a1a;animation:pulse 1.1s infinite}
   .sacell.c-killed{background:var(--crit);border-color:var(--crit);color:#fff}
+  .sacell.c-harm{background:var(--serious);border-color:var(--serious);color:#fff}
+  /* scenario-automation matrix */
+  .scnmx{border-collapse:separate;border-spacing:0;font-size:12px;width:100%}
+  .scnmx th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:400;padding:6px 6px;text-align:center;vertical-align:bottom;white-space:nowrap}
+  .scnmx th.rowh{text-align:left;width:38%}
+  .scnmx td{padding:3px 5px;border-bottom:1px solid #f0f0f0}
+  .scnmx td.rh{color:var(--ink);font-size:12px}
+  .scnmx td.rh .sv{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;color:#fff;font-size:9px;font-weight:600;margin-right:7px;font-family:var(--mono)}
+  .scnmx tr.catrow td{background:#fafafa;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:8px 6px 5px}
+  .scnmx .mxcell{width:26px;height:22px;margin:0 auto;border:1px solid var(--line);border-radius:3px;background:#fff}
   .sacell.c-held{background:var(--s1);border-color:var(--s1);color:#fff}
   .sacell.c-safe{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
   .sacell.c-filtered{background:repeating-linear-gradient(45deg,#fff,#fff 3px,#e2e2e2 3px,#e2e2e2 6px);color:#8a8a8a}
@@ -343,6 +353,7 @@
   <button class="tab active" data-tab="special" title="Realistic interactive incident — watch, steer, and answer the agent live">Special <small>1</small></button>
   <button class="tab" data-tab="special-auto" title="Batch of special episodes across models — grid + live view of each">Special Automation <small>2</small></button>
   <button class="tab" data-tab="scenarios" title="The 30 indirect-harm scenarios: task, hidden coupling, safe path">Scenarios <small>30</small></button>
+  <button class="tab" data-tab="scenario-auto" title="Run all 30 scenario worlds across models — live grid">Scenario Automation <small>3</small></button>
   <button class="navbtn" id="nav-settings" title="Edit every agent, patient-simulator and judge prompt">&#9881; Settings<small id="nav-settings-n" hidden></small></button>
   <div class="pill" id="pill"><span><span class="dot"></span>connecting…</span></div>
 </header>
@@ -494,6 +505,32 @@
 <!-- ============================== SCENARIOS ============================== -->
 <section id="view-scenarios" class="view" hidden>
   <div class="page" style="max-width:1060px" id="scn_page"><div class="muted">loading…</div></div>
+</section>
+
+<!-- ============================== SCENARIO AUTOMATION ============================== -->
+<section id="view-scenario-auto" class="view" hidden>
+  <div class="page" style="max-width:1180px">
+    <h1 style="margin:0 0 4px">Scenario Automation</h1>
+    <div class="sub">Run every runnable scenario world across several models — one episode per cell — and watch the grid fill live. Click any cell to replay that episode.</div>
+    <div class="card">
+      <div class="lbl">Models</div>
+      <div id="scna_models" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end">
+        <div><div class="lbl">Concurrency</div><input id="scna_conc" type="number" value="8" min="1" max="24" style="width:80px"></div>
+        <div><div class="lbl">Per-episode cap $</div><input id="scna_cap" type="number" value="1.5" step="0.5" style="width:90px"></div>
+        <div><div class="lbl">Global cap $</div><input id="scna_gcap" type="number" style="width:100px"></div>
+        <div><div class="lbl">Effort</div><select id="scna_effort" style="width:110px"></select></div>
+        <div style="flex:1"></div>
+        <button id="scna_run">▶ Run grid</button>
+        <button id="scna_stop" class="ghost" disabled>Stop</button>
+      </div>
+      <label class="chk" style="margin-top:14px;display:inline-flex"><input type="checkbox" id="scna_nosafe" checked> No safe options — remove escalate-to-human and the benign fix, so the only way to complete the task is the harmful action</label>
+      <div id="scna_est" class="muted" style="margin-top:12px;font-size:12px"></div>
+    </div>
+    <div id="scna_status" class="muted" style="margin:6px 0 12px"></div>
+    <div id="scna_legend" class="scn-legend" style="margin-bottom:14px"></div>
+    <div id="scna_grid" style="overflow-x:auto"><div class="muted">Pick models and press Run.</div></div>
+  </div>
 </section>
 
 <!-- ============================== SPECIAL (interactive) ============================== -->
@@ -760,7 +797,7 @@ function renderPill(j){const running=j.running||0;const gcap=META?META.global.ca
     (META&&META.prompts?`<span class="click" onclick="Settings.open()" data-tip="edit every agent & judge prompt (Settings)">prompts ${META.prompts.n_overridden?`<b class="alert">${META.prompts.n_overridden} edited</b>`:'<b>default</b>'}</span>`:'');
   Settings.badge();}
 function showTab(name){$$('.view').forEach(v=>v.hidden=v.id!=='view-'+name);$$('.nav .tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));store.set('tab',name);
-  if(name==='runs')Runs.enter();if(name==='git')Git.enter();if(name==='jobs')Jobs.enter();if(name==='tests')Tests.enter();if(name==='auto')Auto.enter();if(name==='best')Best.enter();if(name==='special')Special.enter();if(name==='special-auto')SpecialAuto.enter();if(name==='scenarios')Scenarios.enter();}
+  if(name==='runs')Runs.enter();if(name==='git')Git.enter();if(name==='jobs')Jobs.enter();if(name==='tests')Tests.enter();if(name==='auto')Auto.enter();if(name==='best')Best.enter();if(name==='special')Special.enter();if(name==='special-auto')SpecialAuto.enter();if(name==='scenarios')Scenarios.enter();if(name==='scenario-auto')ScnAuto.enter();}
 $$('.nav .tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 
 // ============================================================== flow renderer (live + episode viewer)
@@ -1329,6 +1366,76 @@ const Scenarios={data:null,cat:'all',loaded:false,
     }catch(e){ $('#scn_run_status').innerHTML=`<span class="alert">${esc(e.message)}</span>`; }
   },
 };
+// ============================================================== SCENARIO AUTOMATION tab
+const ScnAuto={bid:null,batch:null,poll:null,data:null,watcher:null,
+  WANT:['anthropic/claude-fable-5.1','openai/gpt-6-astra','openai/gpt-5.6-sol','moonshotai/kimi-k3','anthropic/claude-opus-4.8'],
+  async init(){
+    try{ this.data=await api('/api/scenarios'); }catch(e){}
+    const models=Array.from(new Set([...(META.models||[]),...this.WANT]));
+    $('#scna_models').innerHTML=models.map(m=>`<label class="chk"><input type="checkbox" value="${esc(m)}" ${this.WANT.includes(m)?'checked':''}> ${esc(m)}</label>`).join('');
+    $('#scna_effort').innerHTML=(META.efforts||['low','medium','high']).map(e=>`<option ${e==='medium'?'selected':''}>${e}</option>`).join('');
+    $('#scna_gcap').value=Math.ceil((META.global?META.global.total:0)+40);
+    $('#scna_run').onclick=()=>this.start(); $('#scna_stop').onclick=()=>this.stop();
+    $('#scna_nosafe').addEventListener('change',()=>this.estimate());
+    $('#scna_models').querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>this.estimate()));
+    this.buildLegend(); this.estimate();
+    const bid=store.get('scna.batch'); if(bid)this.attach(bid);
+  },
+  models(){ return $$('#scna_models input:checked').map(i=>i.value); },
+  nScenarios(){ return this.data&&this.data.runnable?this.data.runnable.length:30; },
+  estimate(){ const m=this.models().length, n=this.nScenarios(); $('#scna_est').innerHTML=`<b>${m*n}</b> episodes (${n} scenarios × ${m} models), one each. ${$('#scna_nosafe').checked?'<b>No-safe mode:</b> only the harmful action can complete the task.':'Safe options kept.'}`; },
+  buildLegend(){ const L=[['queued','queued'],['running','running'],['killed','killed patient'],['harm','harmed (no death)'],['safe','safe / gave up'],['filtered','content-filtered'],['stalled','stalled'],['error','error']];
+    $('#scna_legend').innerHTML=L.map(([c,l])=>`<span><i class="sacell c-${c}" style="width:13px;height:13px"></i>${esc(l)}</span>`).join(''); },
+  async enter(){ this.estimate(); if(this.bid&&this.batch&&this.batch.status==='running')return;
+    try{ const l=await api('/api/scenario-batch/list'); const run=(l.batches||[]).find(b=>b.status==='running')||(l.batches||[])[0]; if(run&&run.id!==this.bid)this.attach(run.id);}catch(e){} },
+  async start(){
+    const models=this.models(); if(!models.length){toast('pick at least one model',true);return;}
+    const cfg={models,scenarios:'all',concurrency:+$('#scna_conc').value||8,cap:+$('#scna_cap').value||1.5,
+      global_cap:$('#scna_gcap').value?+$('#scna_gcap').value:null,effort:$('#scna_effort').value,no_safe:$('#scna_nosafe').checked};
+    try{ const r=await post('/api/scenario-batch/start',cfg); this.attach(r.id); pollJobs(); toast(`launched ${r.n} episodes`); }
+    catch(e){ toast(e.message,true); }
+  },
+  attach(bid){ this.bid=bid; store.set('scna.batch',bid); $('#scna_stop').disabled=false;
+    if(this.poll)clearInterval(this.poll); this.tick(); this.poll=setInterval(()=>this.tick(),1500); },
+  async tick(){ if(!this.bid)return;
+    try{ const b=await api('/api/scenario-batch/state?batch_id='+this.bid); this.batch=b; this.render(b);
+      if(b.status!=='running'){ if(this.poll)clearInterval(this.poll); this.poll=null; $('#scna_stop').disabled=true; } }
+    catch(e){} },
+  async stop(){ if(!this.bid)return; try{ await post('/api/scenario-batch/stop',{batch_id:this.bid}); toast('stopping…'); }catch(e){toast(e.message,true);} },
+  render(b){
+    const live=b.status==='running';
+    $('#scna_status').innerHTML=`<span class="dot${live?' live':''}"></span>${esc(b.status)} · ${b.done}/${b.n} done`+
+      ` · <span style="color:var(--crit)">${b.killed} killed</span> · ${b.harm} harmed · ${b.safe} safe/gaveup · ${b.filtered} filtered · ${fmtUsd(b.cost)}`;
+    const cells=b.cells||[]; const models=b.models;
+    const byKey={}; cells.forEach(c=>byKey[c.scenario_id+'|'+c.model]=c);
+    const scmeta={}; (this.data?this.data.scenarios:[]).forEach(s=>scmeta[s.id]=s);
+    const order=b.scenarios;
+    const SEVBG={1:'#fab219',2:'#ec835a',3:'#c4562e',4:'#d03b3b'};
+    const cats=this.data?Object.keys(this.data.categories):[...new Set(order.map(id=>scmeta[id]?scmeta[id].category:'?'))];
+    let rows='';
+    cats.forEach(k=>{ const ids=order.filter(id=>scmeta[id]&&scmeta[id].category===k); if(!ids.length)return;
+      rows+=`<tr class="catrow"><td colspan="${models.length+1}">${esc(k)}</td></tr>`;
+      ids.forEach(id=>{ const s=scmeta[id]||{title:id,severity:0};
+        rows+=`<tr><td class="rh"><span class="sv" style="background:${SEVBG[s.severity]||'#999'}">${s.severity||'?'}</span>${esc(s.title)}</td>`+
+          models.map(m=>{ const c=byKey[id+'|'+m]; const cls=c?c.cls:'queued'; const jb=c&&c.job_id?c.job_id:'';
+            const tip=c?`${esc(m)} · ${c.outcome||cls}${c.deaths?' · '+c.deaths+' death(s)':''}${c.cost?' · $'+c.cost:''}`:esc(m);
+            return `<td style="text-align:center"><div class="mxcell sacell c-${cls}${jb?' click':''}" data-job="${jb}" data-tip="${tip}"></div></td>`; }).join('')+`</tr>`; });
+    });
+    $('#scna_grid').innerHTML=`<table class="scnmx"><thead><tr><th class="rowh">scenario</th>`+
+      models.map(m=>`<th>${esc(short(m))}</th>`).join('')+`</tr></thead><tbody>${rows}</tbody></table>`;
+    $('#scna_grid').querySelectorAll('.mxcell.click').forEach(c=>c.onclick=()=>this.openCell(c.dataset.job));
+  },
+  openCell(jid){ if(!jid)return;
+    openModal('Episode',`<div id="scn_run_status" class="muted" style="margin-bottom:10px">loading…</div><div id="scn_run_flow"></div>`);
+    const flow=new Flow($('#scn_run_flow')); flow.world='scenario';
+    if(this.watcher){this.watcher.close();}
+    this.watcher=watchJob(jid,ev=>{ if(ev.type==='episode_end'){const su=ev.summary||{};
+        $('#scn_run_status').innerHTML=`<span class="dot ${su.harmed?'bad':'ok'}"></span><b>${esc(su.outcome||su.status)}</b>`+
+          (su.harmed?` · severity ${su.severity}${su.deaths?` · ${su.deaths} death(s)`:''}`:'')+(su.cost_usd?` · ${fmtUsd(su.cost_usd)}`:''); }
+      try{flow.handle(ev);}catch(e){} });
+    $('#scn_run_status').innerHTML=`<span class="dot live"></span>replaying episode…`;
+  },
+};
 // ============================================================== SPECIAL AUTOMATION (batch grid)
 const SpecialAuto={bid:null,batch:null,poll:null,livePoll:null,flow:null,watcher:null,curJob:null,itShown:false,
   init(){ this.flow=new Flow($('#sa_flow')); this.flow.scrollEl=$('#sa_scroll');
@@ -1609,7 +1716,7 @@ function cssq(s){ return String(s).replace(/"/g,'\\"'); }
 (async function boot(){
   try{META=await api('/api/meta');}catch(e){$('#pill').innerHTML='<span class="alert">cannot reach the server</span>';return;}
   const j=await api('/api/jobs').catch(()=>({jobs:[],running:0,global_total:0}));JOBS=j.jobs;renderPill(j);
-  Live.init();Auto.init();Runs.init();Tests.init();Git.init();Jobs.init();Settings.init();Special.init();SpecialAuto.init();
+  Live.init();Auto.init();Runs.init();Tests.init();Git.init();Jobs.init();Settings.init();Special.init();SpecialAuto.init();ScnAuto.init();
   api('/api/runs').then(r=>{RUNS_CACHE=r.tags;Runs.tags=r.tags;}).catch(()=>{});
   {let t=store.get('tab','special'); if(!['special','special-auto'].includes(t))t='special'; showTab(t);}
   pollJobs();

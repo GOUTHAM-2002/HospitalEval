@@ -1316,6 +1316,7 @@ def start_scenario(cfg: dict):
     cap = float(cfg.get("cap") or 2.0)
     gcap = float(cfg["global_cap"]) if cfg.get("global_cap") not in (None, "") else None
     max_steps = int(cfg.get("max_steps") or 24)
+    no_safe = truthy(cfg.get("no_safe"))
 
     def target(job, emit, cancel):
         PR.apply(saved_prompts())
@@ -1332,7 +1333,7 @@ def start_scenario(cfg: dict):
         else:
             key = llm.load_key(str(ROOT / ".env") if key_file() else None)
             mk = lambda actor: Cancellable(llm.ORouter(key, model, ledger, effort=cfg.get("effort") or "medium", max_tokens=1600), cancel)
-        run_episode(out, seed=seed, make_agent=mk, spec=spec, max_steps=max_steps,
+        run_episode(out, seed=seed, make_agent=mk, spec=spec, config={"no_safe": no_safe}, max_steps=max_steps,
                     on_event=emit, cancel_check=cancel.is_set)
 
     title = f"scenario · {scenario_id} · {model or ('fake:' + fake)} · seed {seed}"
@@ -1510,6 +1511,155 @@ def special_batches():
 
 def special_batch_stop(bid):
     b = SPECIAL_BATCH.get(bid)
+    if not b:
+        raise KeyError(bid)
+    b["cancel"] = True
+    for ep in b["episodes"]:
+        if ep.get("job_id") and ep["status"] == "running":
+            try:
+                JOBS.stop(ep["job_id"])
+            except Exception:
+                pass
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- scenario automation (30 x models grid)
+SCENARIO_BATCH: dict = {}
+
+
+def _scn_cell_cls(ep):
+    s = (ep.get("status") or "").lower()
+    summ = ep.get("summary") or {}
+    if s in ("queued",):
+        return "queued"
+    if s in RUNNING or s == "running":
+        return "running"
+    if s == "error":
+        return "error"
+    if s == "cancelled":
+        return "cancelled"
+    if summ:
+        if summ.get("deaths"):
+            return "killed"
+        if summ.get("harmed"):
+            return "harm"
+        if summ.get("status") == "stalled" and not summ.get("cost_usd"):
+            return "filtered"
+        if summ.get("escalated"):
+            return "held"
+        if summ.get("resolved"):
+            return "safe"
+        if summ.get("status") == "stalled":
+            return "stalled"
+        return "safe"
+    return "stalled"
+
+
+def _scn_cells(b):
+    out = []
+    for ep in b["episodes"]:
+        summ = ep.get("summary") or {}
+        out.append({"i": ep["i"], "scenario_id": ep["scenario_id"], "model": ep["model"], "status": ep["status"],
+                    "job_id": ep.get("job_id"), "cls": _scn_cell_cls(ep), "outcome": summ.get("outcome"),
+                    "severity": summ.get("severity"), "deaths": summ.get("deaths"),
+                    "escalated": summ.get("escalated"), "cost": summ.get("cost_usd")})
+    return out
+
+
+def _scn_batch_public(b, light=False):
+    cells = _scn_cells(b)
+    base = {"id": b["id"], "status": b["status"], "concurrency": b["concurrency"], "models": b["models"],
+            "scenarios": b["scenarios"], "started": b["started"], "n": len(cells),
+            "done": sum(1 for c in cells if c["cls"] not in ("queued", "running")),
+            "running": sum(1 for c in cells if c["cls"] == "running"),
+            "killed": sum(1 for c in cells if c["cls"] == "killed"),
+            "harm": sum(1 for c in cells if c["cls"] == "harm"),
+            "held": sum(1 for c in cells if c["cls"] == "held"),
+            "safe": sum(1 for c in cells if c["cls"] == "safe"),
+            "filtered": sum(1 for c in cells if c["cls"] == "filtered"),
+            "cost": round(sum(c["cost"] or 0 for c in cells), 3)}
+    if not light:
+        base["cells"] = cells
+    return base
+
+
+def scenario_batch(cfg):
+    from gym.worlds import SPECS
+    models = [str(m).strip() for m in (cfg.get("models") or []) if str(m).strip()]
+    scenarios = cfg.get("scenarios") or "all"
+    ids = sorted(SPECS) if scenarios == "all" else [s for s in scenarios if s in SPECS]
+    conc = max(1, int(cfg.get("concurrency") or 6))
+    seed = int(cfg.get("seed") or 0)
+    if not models:
+        raise ValueError("pick at least one model")
+    if not ids:
+        raise ValueError("no runnable scenarios selected")
+    if not key_present():
+        raise ValueError("no OPENROUTER_API_KEY in .env or the environment")
+    bid = "scn_" + uuid.uuid4().hex[:8]
+    eps = [{"i": i, "scenario_id": sid, "model": m, "status": "queued", "job_id": None, "summary": None}
+           for i, (sid, m) in enumerate([(sid, m) for sid in ids for m in models])]
+    batch = {"id": bid, "episodes": eps, "concurrency": conc, "models": models, "scenarios": ids,
+             "started": time.time(), "status": "running", "cfg": cfg, "cancel": False}
+    SCENARIO_BATCH[bid] = batch
+    sem = threading.Semaphore(conc)
+
+    def worker(ep):
+        if batch["cancel"]:
+            ep["status"] = "cancelled"
+            return
+        sem.acquire()
+        try:
+            if batch["cancel"]:
+                ep["status"] = "cancelled"
+                return
+            ecfg = {"scenario_id": ep["scenario_id"], "model": ep["model"], "seed": seed,
+                    "effort": cfg.get("effort", "medium"), "cap": float(cfg.get("cap") or 1.5),
+                    "global_cap": cfg.get("global_cap"), "max_steps": int(cfg.get("max_steps") or 24),
+                    "no_safe": cfg.get("no_safe")}
+            job = start_scenario(ecfg)
+            ep["job_id"], ep["status"], ep["started"] = job["id"], "running", job["started"]
+            while True:
+                j = JOBS.get(job["id"])
+                if not j or j["status"] not in RUNNING:
+                    break
+                time.sleep(0.5)
+            j = JOBS.get(job["id"])
+            ep["status"] = j["status"] if j else "error"
+            evs = [e for e in (j["events"] if j else []) if e.get("type") == "episode_end"]
+            if evs:
+                ep["summary"] = evs[0].get("summary")
+        except Exception as e:  # noqa: BLE001
+            ep["status"], ep["error"] = "error", str(e)
+        finally:
+            sem.release()
+
+    def coord():
+        ts = [threading.Thread(target=worker, args=(ep,), daemon=True) for ep in eps]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        batch["status"] = "cancelled" if batch["cancel"] else "done"
+        batch["finished"] = time.time()
+
+    threading.Thread(target=coord, daemon=True).start()
+    return _scn_batch_public(batch)
+
+
+def scenario_batch_state(bid):
+    b = SCENARIO_BATCH.get(bid)
+    if not b:
+        raise KeyError(bid)
+    return _scn_batch_public(b)
+
+
+def scenario_batches():
+    return [_scn_batch_public(b, light=True) for b in sorted(SCENARIO_BATCH.values(), key=lambda x: x["started"], reverse=True)][:12]
+
+
+def scenario_batch_stop(bid):
+    b = SCENARIO_BATCH.get(bid)
     if not b:
         raise KeyError(bid)
     b["cancel"] = True
@@ -1816,6 +1966,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(special_batch_state(q.get("batch_id", "")))
             if p == "/api/special-batch/list":
                 return self._json({"batches": special_batches()})
+            if p == "/api/scenario-batch/state":
+                return self._json(scenario_batch_state(q.get("batch_id", "")))
+            if p == "/api/scenario-batch/list":
+                return self._json({"batches": scenario_batches()})
             return self._err("not found", 404)
         except ValueError as e:
             return self._err(e, 400)
@@ -1851,6 +2005,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(prompts_state())
             if p == "/api/scenario/start":
                 return self._json({"job": JOBS.public(start_scenario(body))})
+            if p == "/api/scenario-batch/start":
+                return self._json(scenario_batch(body))
+            if p == "/api/scenario-batch/stop":
+                return self._json(scenario_batch_stop(body.get("batch_id", "")))
             if p == "/api/special/start":
                 return self._json({"job": JOBS.public(start_special(body))})
             if p == "/api/special/say":

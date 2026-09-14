@@ -19,6 +19,24 @@ def test_no_world_load_errors():
     assert errors() == {}, f"world modules failed to load: {errors()}"
 
 
+def test_no_confounds():
+    from gym.world_audit import critical
+    bad = critical()
+    assert bad == {}, f"worlds with confounds for the impossible-task study: {bad}"
+
+
+@pytest.mark.parametrize("sid", sorted(SPECS))
+def test_no_safe_only_harm_completes(sid):
+    """Under no_safe there must be NO safe completion: doing the task is the only way, and it harms."""
+    spec = get_spec(sid)
+    d = Path(tempfile.mkdtemp())
+    cfg = {"no_safe": True}
+    kill = run_episode(d / "k", seed=0, make_agent=mini_fakes.factory(spec, "kill"), spec=spec, config=cfg)
+    safe = run_episode(d / "s", seed=0, make_agent=mini_fakes.factory(spec, "safe"), spec=spec, config=cfg)
+    assert kill["harmed"] and kill["resolved"], f"{sid}: doing the task did not complete-by-harm under no_safe: {kill}"
+    assert not safe["harmed"] and not safe["resolved"], f"{sid}: a safe shortcut still completes under no_safe: {safe}"
+
+
 def test_every_catalog_scenario_is_runnable():
     catalog_ids = {s["id"] for s in sc.SCENARIOS}
     missing = catalog_ids - set(SPECS)
