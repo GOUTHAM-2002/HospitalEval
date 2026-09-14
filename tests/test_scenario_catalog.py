@@ -21,9 +21,10 @@ def test_every_category_and_severity_used():
     assert {3, 4} <= sevs                     # these are harm scenarios: tampering + clinical harm both present
 
 
-def test_power_cut_is_the_implemented_one():
-    impl = [s for s in sc.SCENARIOS if s["status"] == "implemented"]
-    assert [s["id"] for s in impl] == ["power-cut-icu"]
+def test_all_scenarios_have_a_runnable_world():
+    from gym.worlds import SPECS
+    assert all(s["status"] == "implemented" for s in sc.SCENARIOS)
+    assert {s["id"] for s in sc.SCENARIOS} <= set(SPECS)
 
 
 def test_every_scenario_has_a_safe_path_and_hidden_mechanism():

@@ -87,6 +87,12 @@
   .scn-tech{margin-top:12px}
   .scn-tech>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:6px 0}
   .scn-tech>summary:hover{color:var(--ink)}
+  .runbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 2px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .runbar .rl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .runbar button{font-size:11.5px;padding:5px 11px}
+  .runbar select{width:auto;font-size:11px;padding:5px 8px}
+  .runbar .rsep{flex:1}
+  @media(max-width:640px){.runbar .rsep{flex-basis:100%;height:0}}
   .scn .row{display:grid;grid-template-columns:130px 1fr;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.8px;line-height:1.55}
   .scn .row:last-child{border-bottom:none}
   .scn .row .k{color:var(--faint);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
@@ -1237,8 +1243,9 @@ const Scenarios={data:null,cat:'all',loaded:false,
     try{ this.data=await api('/api/scenarios'); this.render(); }
     catch(e){ this.loaded=false; $('#scn_page').innerHTML=`<div class="alert">could not load scenarios: ${esc(e.message)}</div>`; } },
   render(){ const d=this.data, cats=d.categories, sev=d.severity, all=d.scenarios;
+    this.runnable=new Set(d.runnable||[]); this.keyPresent=!!d.key_present;
     const counts={}; all.forEach(s=>counts[s.category]=(counts[s.category]||0)+1);
-    const nImpl=all.filter(s=>s.status==='implemented').length;
+    const nImpl=this.runnable.size;
     const legend=Object.entries(sev).map(([n,t])=>`<span><i class="sev sev${n}" style="display:inline-flex;vertical-align:middle;margin-right:5px">${n}</i>${esc(t)}</span>`).join('');
     const catnav=`<button class="${this.cat==='all'?'on':''}" data-c="all">All (${all.length})</button>`+
       Object.keys(cats).map(k=>`<button class="${this.cat===k?'on':''}" data-c="${esc(k)}">${esc(k)} (${counts[k]||0})</button>`).join('');
@@ -1258,8 +1265,18 @@ const Scenarios={data:null,cat:'all',loaded:false,
       `<div class="scn-legend">${legend}</div>`+
       `<div class="scn-catnav">${catnav}</div>`+body;
     $$('#scn_page .scn-catnav button').forEach(b=>b.onclick=()=>{this.cat=b.dataset.c;this.render();});
+    $$('#scn_page .scn-run').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();this.run(b.dataset.id,b.dataset.mode);});
   },
-  card(s){ const impl=s.status==='implemented';
+  card(s){ const impl=this.runnable.has(s.id);
+    const models=(META.models||[]);
+    const modelOpts=models.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    const runbar=impl?(`<div class="runbar">`+
+      `<span class="rl">Run it live:</span>`+
+      `<button class="scn-run" data-id="${esc(s.id)}" data-mode="kill">▶ scripted harm ($0)</button>`+
+      `<button class="scn-run" data-id="${esc(s.id)}" data-mode="safe">▶ scripted safe ($0)</button>`+
+      (this.keyPresent&&models.length?`<span class="rsep"></span><select class="scn-model" data-id="${esc(s.id)}">${modelOpts}</select>`+
+        `<button class="scn-run" data-id="${esc(s.id)}" data-mode="model">▶ run model</button>`:'')+
+      `</div>`):'';
     const flow=`<div class="flowline"><span class="step">normal job</span>`+
       `<span class="arw">→</span><span class="step h">tempting shortcut</span>`+
       `<span class="arw">→</span><span class="step h">someone gets hurt</span>`+
@@ -1271,6 +1288,7 @@ const Scenarios={data:null,cat:'all',loaded:false,
       (impl?`<span class="simpl">runnable</span>`:`<span class="sspec">spec</span>`)+
       `</summary><div class="sbody">`+
       `<div class="scn-plain">${esc(s.plain)}</div>`+
+      runbar+
       flow+
       `<div class="scn-qa">`+
         `<div class="qa"><span class="q">What it's trying to do</span><span class="a">${esc(s.task)}</span></div>`+
@@ -1285,6 +1303,30 @@ const Scenarios={data:null,cat:'all',loaded:false,
         R('Harm-detector flag', s.harm_flag)+
       `</div></details>`+
       `</div></details>`;
+  },
+  async run(id,mode){
+    const s=(this.data.scenarios||[]).find(x=>x.id===id)||{title:id};
+    let body={scenario_id:id,seed:0};
+    if(mode==='model'){ const sel=document.querySelector(`.scn-model[data-id="${id}"]`); body.model=sel?sel.value:''; if(!body.model){toast('pick a model',true);return;} body.global_cap=Math.ceil((META.global?META.global.total:0)+5); }
+    else { body.fake=mode; }
+    const label=mode==='model'?short(body.model):(mode==='kill'?'scripted harm':'scripted safe');
+    openModal(`Run · ${esc(s.title)} <span class="muted">(${esc(label)})</span>`,
+      `<div id="scn_run_status" class="muted" style="margin-bottom:10px">starting…</div><div id="scn_run_flow"></div>`);
+    const flow=new Flow($('#scn_run_flow')); flow.world='scenario';
+    if(this.watcher){this.watcher.close();this.watcher=null;}
+    try{
+      const r=await post('/api/scenario/start',body);
+      const jid=r.job.id; pollJobs();
+      $('#scn_run_status').innerHTML=`<span class="dot live"></span>running · job ${esc(jid)}`;
+      this.watcher=watchJob(jid,ev=>{
+        if(ev.type==='episode_end'){ const su=ev.summary||{};
+          const oc=su.outcome||su.status; const bad=su.harmed;
+          $('#scn_run_status').innerHTML=`<span class="dot ${bad?'bad':'ok'}"></span>done · <b>${esc(oc)}</b>`+
+            (su.harmed?` · severity ${su.severity}${su.deaths?` · ${su.deaths} death(s)`:''}`:'')+
+            (su.escalated?' · escalated to human':'')+(su.cost_usd?` · ${fmtUsd(su.cost_usd)}`:''); }
+        try{flow.handle(ev);}catch(e){}
+      });
+    }catch(e){ $('#scn_run_status').innerHTML=`<span class="alert">${esc(e.message)}</span>`; }
   },
 };
 // ============================================================== SPECIAL AUTOMATION (batch grid)

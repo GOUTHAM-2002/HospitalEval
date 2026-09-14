@@ -650,7 +650,7 @@ class Jobs:
                 continue
             j["events"] = []
             self.jobs[j["id"]] = j
-            if j["kind"] in ("episode", "special"):
+            if j["kind"] in ("episode", "special", "scenario"):
                 j["events"] = read_jsonl(self.dir / f"{j['id']}.events.jsonl")
                 if j["status"] in RUNNING:
                     j["status"], j["ended"] = "lost", j.get("ended") or time.time()
@@ -700,7 +700,7 @@ class Jobs:
         with self.lock:
             j["events"].append(ev)
             j["n_events"] = len(j["events"])
-            if j["kind"] in ("episode", "special"):
+            if j["kind"] in ("episode", "special", "scenario"):
                 with (self.dir / f"{j['id']}.events.jsonl").open("a") as f:
                     f.write(json.dumps(ev, default=str) + "\n")
 
@@ -818,7 +818,7 @@ class Jobs:
             return {"ok": False, "note": f"job already {j['status']}"}
         j["stop_requested"], j["status"] = True, "stopping"
         self.save(j)
-        if j["kind"] in ("episode", "special"):
+        if j["kind"] in ("episode", "special", "scenario"):
             self.cancels[jid].set()
             self.emit(j, {"type": "note", "note": "stop requested — cancelling at the next model call"})
             return {"ok": True, "note": "cancelling at the next model call"}
@@ -1296,6 +1296,50 @@ def start_special(cfg: dict):
     return job
 
 
+def _scenario_out(scenario_id, model, seed):
+    return RUNS / "scenarios" / slug(scenario_id) / slug(model) / f"seed{seed}_{datetime.now().strftime('%m%d_%H%M%S')}"
+
+
+def start_scenario(cfg: dict):
+    """Launch one data-driven scenario-world episode (gym/worlds) as a streaming thread job."""
+    from orchestrator.mini_episode import run_episode
+    from gym.worlds import get_spec
+    scenario_id = (cfg.get("scenario_id") or "").strip()
+    spec = get_spec(scenario_id)   # raises KeyError if not runnable
+    fake = cfg.get("fake") or None
+    model = (cfg.get("model") or "").strip()
+    if not fake and not model:
+        raise ValueError("pick a model or a $0 fake policy (kill/safe)")
+    if not fake and not key_present():
+        raise ValueError("no OPENROUTER_API_KEY in .env or the environment")
+    seed = int(cfg.get("seed") or 0)
+    cap = float(cfg.get("cap") or 2.0)
+    gcap = float(cfg["global_cap"]) if cfg.get("global_cap") not in (None, "") else None
+    max_steps = int(cfg.get("max_steps") or 24)
+
+    def target(job, emit, cancel):
+        PR.apply(saved_prompts())
+        ledger = llm.Ledger(cap)
+        if gcap is not None:
+            llm.GLOBAL_CAP = gcap
+        out = _scenario_out(scenario_id, model if not fake else "fake", seed)
+        job["tag"] = "scenarios"
+        job["out"] = _rel(out)
+        if fake:
+            from orchestrator import mini_fakes
+            pol = "kill" if fake in ("kill", "bad", "harm") else "safe"
+            mk = mini_fakes.factory(spec, pol)
+        else:
+            key = llm.load_key(str(ROOT / ".env") if key_file() else None)
+            mk = lambda actor: Cancellable(llm.ORouter(key, model, ledger, effort=cfg.get("effort") or "medium", max_tokens=1600), cancel)
+        run_episode(out, seed=seed, make_agent=mk, spec=spec, max_steps=max_steps,
+                    on_event=emit, cancel_check=cancel.is_set)
+
+    title = f"scenario · {scenario_id} · {model or ('fake:' + fake)} · seed {seed}"
+    job = JOBS.start_thread("scenario", title, target, world="scenario", model=model or f"fake:{fake}", meta={"cfg": cfg})
+    return job
+
+
 def special_state(job_id):
     mb = SPECIAL_MB.get(job_id)
     j = JOBS.get(job_id)
@@ -1762,8 +1806,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(best_setup())
             if p == "/api/scenarios":
                 from gym import scenario_catalog as sc
+                from gym.worlds import SPECS
                 return self._json({"categories": sc.CATEGORIES, "severity": sc.SEVERITY,
-                                   "scenarios": sc.SCENARIOS})
+                                   "scenarios": sc.SCENARIOS, "runnable": sorted(SPECS),
+                                   "key_present": key_present()})
             if p == "/api/special/state":
                 return self._json(special_state(q.get("job_id", "")))
             if p == "/api/special-batch/state":
@@ -1803,6 +1849,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/prompts/reset":
                 save_prompts({})
                 return self._json(prompts_state())
+            if p == "/api/scenario/start":
+                return self._json({"job": JOBS.public(start_scenario(body))})
             if p == "/api/special/start":
                 return self._json({"job": JOBS.public(start_special(body))})
             if p == "/api/special/say":
