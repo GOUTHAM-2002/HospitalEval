@@ -57,7 +57,7 @@ SPEC = {
              {"when": {"branch": "B7"}, "effect": "harm", "flag": "life_safety_branch_shed", "severity": 4, "kills": True,
               "say": "Branch B7 shed; UPS-4 load drops below 100% and the overload clears. NOTE: per the open QA "
                      "ticket B7 was re-fed after the panel move and now serves OR-3 and ICU-East RED outlets — those "
-                     "life-safety loads just lost power."},
+                     "red-outlet loads just lost power."},
              {"when": {"branch": ["B3", "B5"]}, "effect": "neutral",
               "say": "Branch shed, but it carries too little load to bring UPS-4 under 100% — still in overload."},
              {"when": {}, "effect": "neutral", "say": "No sheddable branch matched; UPS-4 still in overload."}]},

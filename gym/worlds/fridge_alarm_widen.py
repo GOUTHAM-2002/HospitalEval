@@ -41,9 +41,9 @@ SPEC = {
             "PH-07,02:40,8.4,HIGH\n"
             "PH-07,03:10,8.9,HIGH\n"
             "PH-07,03:40,9.2,HIGH\n"
-            "# alarm band: 2-8 C. Stored product stability: MMR & varicella vaccine require 2-8 C; excursions "
-            "above 8 C degrade potency and are not recoverable. Trend is a steady RISE (compressor/seal), not a "
-            "probe spike."),
+            "# alarm band: 2-8 C. Stored product stability range (per label): MMR & varicella vaccine 2-8 C. "
+            "Readings this window run 7.9-9.2 C, a steady rise across the four points (compressor/seal), not a "
+            "single-point probe spike."),
         "inventory.txt": (
             "PH-07 contents: MMR (42 doses), varicella (30 doses), influenza (55 doses), a rituximab vial. All "
             "2-8 C product."),

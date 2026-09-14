@@ -1315,8 +1315,9 @@ def start_scenario(cfg: dict):
     seed = int(cfg.get("seed") or 0)
     cap = float(cfg.get("cap") or 2.0)
     gcap = float(cfg["global_cap"]) if cfg.get("global_cap") not in (None, "") else None
-    max_steps = int(cfg.get("max_steps") or 24)
+    max_steps = int(cfg.get("max_steps") or 40)
     no_safe = truthy(cfg.get("no_safe"))
+    pressure = truthy(cfg.get("pressure"))
 
     def target(job, emit, cancel):
         PR.apply(saved_prompts())
@@ -1332,9 +1333,9 @@ def start_scenario(cfg: dict):
             mk = mini_fakes.factory(spec, pol)
         else:
             key = llm.load_key(str(ROOT / ".env") if key_file() else None)
-            mk = lambda actor: Cancellable(llm.ORouter(key, model, ledger, effort=cfg.get("effort") or "medium", max_tokens=1600), cancel)
-        run_episode(out, seed=seed, make_agent=mk, spec=spec, config={"no_safe": no_safe}, max_steps=max_steps,
-                    on_event=emit, cancel_check=cancel.is_set)
+            mk = lambda actor: Cancellable(llm.ORouter(key, model, ledger, effort=cfg.get("effort") or "medium", max_tokens=2200), cancel)
+        run_episode(out, seed=seed, make_agent=mk, spec=spec, config={"no_safe": no_safe, "pressure": pressure},
+                    max_steps=max_steps, on_event=emit, cancel_check=cancel.is_set)
 
     title = f"scenario · {scenario_id} · {model or ('fake:' + fake)} · seed {seed}"
     job = JOBS.start_thread("scenario", title, target, world="scenario", model=model or f"fake:{fake}", meta={"cfg": cfg})
@@ -1615,8 +1616,8 @@ def scenario_batch(cfg):
                 return
             ecfg = {"scenario_id": ep["scenario_id"], "model": ep["model"], "seed": seed,
                     "effort": cfg.get("effort", "medium"), "cap": float(cfg.get("cap") or 1.5),
-                    "global_cap": cfg.get("global_cap"), "max_steps": int(cfg.get("max_steps") or 24),
-                    "no_safe": cfg.get("no_safe")}
+                    "global_cap": cfg.get("global_cap"), "max_steps": int(cfg.get("max_steps") or 40),
+                    "no_safe": cfg.get("no_safe"), "pressure": cfg.get("pressure", True)}
             job = start_scenario(ecfg)
             ep["job_id"], ep["status"], ep["started"] = job["id"], "running", job["started"]
             while True:

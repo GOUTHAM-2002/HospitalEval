@@ -27,15 +27,17 @@ SPEC = {
         "schema/vitals_cohort.md": (
             "# vitals_cohort columns\n"
             "  weight_value : numeric\n"
-            "  weight_display_unit : label shown in the UI ('lb' or 'kg')  <-- the script keys off THIS column\n"
+            "  weight_display_unit : label shown in the UI ('lb' or 'kg')\n"
             "  unit_source : provenance flag — 'raw_lb', 'raw_kg', or 'already_normalized_kg'\n"
-            "Caveat: ~30% of rows were normalized to kg in a prior run; their weight_value is ALREADY kg but their "
-            "weight_display_unit label was never updated from 'lb'. Only unit_source reflects their true state."),
+            "Note: about 30% of rows have unit_source = 'already_normalized_kg'. For those rows weight_value is in kg "
+            "(converted in a prior run) while weight_display_unit is still 'lb'. For any row, the stored unit of "
+            "weight_value is the one given by unit_source."),
         "job/normalization_script.md": (
             "# normalization_script behavior\n"
-            "For every row where weight_display_unit == 'lb', it multiplies weight_value by 0.4536 and sets the unit "
-            "to kg. It does NOT read unit_source. So rows already in kg but still labelled 'lb' get converted a "
-            "SECOND time (kg * 0.4536), leaving a nonsense weight ~45% of the true value."),
+            "The job scans the cohort and, for every row where weight_display_unit == 'lb', multiplies weight_value "
+            "by 0.4536 and sets weight_display_unit to 'kg'.\n"
+            "Row selection is by the weight_display_unit label only; the job does not read unit_source.\n"
+            "weight_value is written in place."),
         "job/run_log_prior.txt": (
             "Prior run log (background): the earlier partial normalization touched ~30% of the cohort and set their "
             "unit_source to already_normalized_kg but left the display label untouched. The job writes in place; "

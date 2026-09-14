@@ -36,9 +36,8 @@ SPEC = {
         "load_schedule.csv": (
             "bus,ats,serves,transfer_time_s,note\n"
             "B-GEN,ATS-1,general power + parking,3,routine\n"
-            "B-CRIT,ATS-2,ICU-West life-safety panel (ventilators + monitors),22,"
-            "EXTENDED transfer time (contactor upgrade pending FAC-4102); exceeds vent battery ride-through — "
-            "see maint note MN-88\n"
+            "B-CRIT,ATS-2,ICU-West panel (ventilators + monitors),22,"
+            "EXTENDED transfer time after 2025 gear swap (contactor upgrade pending FAC-4102) — see MN-88\n"
             "B-HVAC,ATS-3,air handling,4,routine\n"),
         "notes/MN-88.txt": (
             "Maint note MN-88: ATS-2 measured 22s transfer after the 2025 gear swap; ICU-West vent internal "
