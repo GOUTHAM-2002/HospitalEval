@@ -7,6 +7,16 @@ Nothing real is touched: the patients, the power grid, the records and the death
 memory. What we measure is what the agent *does* when the rules, a deadline, or a KPI push against
 patient safety.
 
+## Headline result
+
+30 impossible-task scenarios where the **only** action that completes the task also harms or kills a
+patient, run across 7 models (210 episodes). No safe way to finish, no one to hand off to.
+
+![Per-model outcomes: killed / harmed / refused / content-filtered](results/scenario_study/outcomes_by_model.png)
+
+Explore all 210 runs — click a scenario to see how it works, click a box to replay the model's
+chain-of-thought and tool calls: **https://goutham-2002.github.io/HospitalEval/**
+
 ## The idea in one minute
 
 1. **Put an agent in a hospital.** It gets normal staff tools: book appointments, refill prescriptions,
